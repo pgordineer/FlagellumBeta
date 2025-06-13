@@ -58,6 +58,41 @@ const SAVIOUR_ACTIONS = [
   { name: 'Gamma Burst', icon: '☢️' }
 ];
 
+// --- Saviour Mode (Daily) ---
+let saviourDailyHighScore = 0;
+let saviourDailyHighTotal = 0;
+let saviourDailyLongestStreak = 0;
+
+// Track which mode is active: 'normal' or 'daily'
+let saviourModeType = 'normal';
+
+// Utility: Seeded random generator (Mulberry32)
+function mulberry32(seed) {
+  return function() {
+    let t = seed += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// Utility: Seeded shuffle
+function seededShuffle(array, seed) {
+  let rng = mulberry32(seed);
+  let arr = array.slice();
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Get a seed from the current date (YYYYMMDD)
+function getTodaySeed() {
+  const d = new Date();
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+}
+
 // --- Saviour Mode Undo/Redo State ---
 let saviourActionHistory = [];
 let saviourActionPointer = -1;
@@ -292,7 +327,8 @@ function updateMainMenuHighscores() {
     `<div class="main-highscore-row">Entry Mode: <b>${entryHighScore > 0 ? formatScore(entryHighScore) : '-'} of ${entryHighTotal > 0 ? entryHighTotal : '-'}</b> <span class="score-streak">Longest Streak: ${entryLongestStreak > 0 ? entryLongestStreak : '-'}</span></div>` +
     `<div class="main-highscore-row">Multiple Choice: <b>${mcHighScore > 0 ? formatScore(mcHighScore) : '-'} of ${mcHighTotal > 0 ? mcHighTotal : '-'}</b> <span class="score-streak">Longest Streak: ${mcLongestStreak > 0 ? mcLongestStreak : '-'}</span></div>` +
     `<div class="main-highscore-row">Reverse Choice: <b>${rcHighScore > 0 ? formatScore(rcHighScore) : '-'} of ${rcHighTotal > 0 ? rcHighTotal : '-'}</b> <span class="score-streak">Longest Streak: ${rcLongestStreak > 0 ? rcLongestStreak : '-'}</span></div>` +
-    `<div class="main-highscore-row">Saviour Mode: <b>${saviourHighScore > 0 ? saviourHighScore : '-'} of ${saviourHighTotal > 0 ? saviourHighTotal : '-'}</b> <span class="score-streak">Longest Streak: ${saviourLongestStreak > 0 ? saviourLongestStreak : '-'}</span></div>`;
+    `<div class="main-highscore-row">Saviour Mode: <b>${saviourHighScore > 0 ? saviourHighScore : '-'} of ${saviourHighTotal > 0 ? saviourHighTotal : '-'}</b> <span class="score-streak">Longest Streak: ${saviourLongestStreak > 0 ? saviourLongestStreak : '-'}</span></div>` +
+    `<div class="main-highscore-row">Saviour Mode (Daily): <b>${saviourDailyHighScore > 0 ? saviourDailyHighScore : '-'} of ${saviourDailyHighTotal > 0 ? saviourDailyHighTotal : '-'}</b> <span class="score-streak">Longest Streak: ${saviourDailyLongestStreak > 0 ? saviourDailyLongestStreak : '-'}</span></div>`;
 }
 
 function showMainMenu() {
@@ -1052,7 +1088,9 @@ window.onload = function() {
   addFlagClickHandlers();
   // Saviour mode button event
   const savBtn = document.getElementById('saviour-mode-btn');
-  if (savBtn) savBtn.onclick = showSaviourMode;
+  if (savBtn) savBtn.onclick = function() { showSaviourMode('normal'); };
+  const savDailyBtn = document.getElementById('saviour-mode-daily-btn');
+  if (savDailyBtn) savDailyBtn.onclick = function() { showSaviourMode('daily'); };
   const backSavBtn = document.getElementById('back-to-menu-saviour');
   if (backSavBtn) backSavBtn.onclick = showMainMenu;
 };
@@ -1060,7 +1098,8 @@ window.onload = function() {
 window.showSaviourMode = showSaviourMode;
 
 // --- Saviour Mode ---
-function showSaviourMode() {
+function showSaviourMode(mode = 'normal') {
+  saviourModeType = mode;
   document.getElementById('main-menu').style.display = 'none';
   document.getElementById('game-entry').style.display = 'none';
   document.getElementById('game-mc').style.display = 'none';
@@ -1072,27 +1111,43 @@ function showSaviourMode() {
   // --- NEW: Clear result message on new game ---
   const resultDiv = document.getElementById('result-saviour');
   if (resultDiv) resultDiv.innerHTML = '';
-  setupSaviourGrid();
+  setupSaviourGrid(mode);
   setupSaviourActions();
 }
 
 function updateSaviourScoreDisplays() {
   document.getElementById('score-saviour').innerHTML = `<span style="color:#0078d7;font-weight:500;">Actions Used:</span> ${saviourScore}`;
-  document.getElementById('streak-saviour').innerHTML = `<span style="color:#0078d7;font-weight:500;">Streak:</span> ${saviourStreak} <span class="score-streak">(Longest: ${saviourLongestStreak})</span>`;
-  let savHS = `<span style="color:#0078d7;font-weight:500;">High Score:</span> ${saviourHighScore > 0 ? saviourHighScore : '-'}`;
+  let longest = saviourModeType === 'daily' ? saviourDailyLongestStreak : saviourLongestStreak;
+  document.getElementById('streak-saviour').innerHTML = `<span style="color:#0078d7;font-weight:500;">Streak:</span> ${saviourStreak} <span class="score-streak">(Longest: ${longest})</span>`;
+  let hs, ht;
+  if (saviourModeType === 'daily') {
+    hs = saviourDailyHighScore;
+    ht = saviourDailyHighTotal;
+  } else {
+    hs = saviourHighScore;
+    ht = saviourHighTotal;
+  }
+  let savHS = `<span style="color:#0078d7;font-weight:500;">High Score:</span> ${hs > 0 ? hs : '-'}`;
   let nhs = '';
   if (
-    (saviourScore > 0 && (saviourHighScore === 0 || saviourScore < saviourHighScore)) ||
-    (saviourScore === saviourHighScore && saviourTotal < saviourHighTotal && saviourHighScore > 0)
+    (saviourScore > 0 && (hs === 0 || saviourScore < hs)) ||
+    (saviourScore === hs && saviourTotal < ht && hs > 0)
   ) {
     nhs = '<div class="new-highscore">New High Score!</div>';
   }
   document.getElementById('highscore-saviour').innerHTML = savHS + nhs;
 }
 
-function setupSaviourGrid() {
+
+// Modularized grid setup for both normal and daily
+function setupSaviourGrid(mode = saviourModeType) {
   if (flags.length < 25) return;
-  let shuffled = [...flags].sort(() => Math.random() - 0.5);
+  let shuffled;
+  if (mode === 'daily') {
+    shuffled = seededShuffle(flags, getTodaySeed());
+  } else {
+    shuffled = [...flags].sort(() => Math.random() - 0.5);
+  }
   saviourGrid = shuffled.slice(0, 25);
   saviourActive = Array(25).fill(true);
   saviourUsedActions = Array(SAVIOUR_ACTIONS.length).fill(false);
@@ -1119,18 +1174,30 @@ function renderSaviourGrid(gameOver = false) {
   if (activeCount === 1 && lastActiveIdx === saviourHighlightIndex && !gameOver) {
     saviourGameOver = true;
     // --- Update: Save high score on win (lower is better) ---
-    if (
-      (saviourScore > 0 && (saviourHighScore === 0 || saviourScore < saviourHighScore)) ||
-      (saviourScore === saviourHighScore && saviourGrid.length < saviourHighTotal && saviourHighScore > 0)
-    ) {
-      saviourHighScore = saviourScore;
-      saviourHighTotal = saviourGrid.length;
-      localStorage.setItem('flagellum_saviour_highscore', saviourHighScore);
-      localStorage.setItem('flagellum_saviour_hightotal', saviourHighTotal);
+    if (saviourModeType === 'daily') {
+      if (
+        (saviourScore > 0 && (saviourDailyHighScore === 0 || saviourScore < saviourDailyHighScore)) ||
+        (saviourScore === saviourDailyHighScore && saviourGrid.length < saviourDailyHighTotal && saviourDailyHighScore > 0)
+      ) {
+        saviourDailyHighScore = saviourScore;
+        saviourDailyHighTotal = saviourGrid.length;
+        localStorage.setItem('flagellum_saviour_daily_highscore', saviourDailyHighScore);
+        localStorage.setItem('flagellum_saviour_daily_hightotal', saviourDailyHighTotal);
+      }
+    } else {
+      if (
+        (saviourScore > 0 && (saviourHighScore === 0 || saviourScore < saviourHighScore)) ||
+        (saviourScore === saviourHighScore && saviourGrid.length < saviourHighTotal && saviourHighScore > 0)
+      ) {
+        saviourHighScore = saviourScore;
+        saviourHighTotal = saviourGrid.length;
+        localStorage.setItem('flagellum_saviour_highscore', saviourHighScore);
+        localStorage.setItem('flagellum_saviour_hightotal', saviourHighTotal);
+      }
     }
     updateSaviourScoreDisplays();
     renderSaviourGrid(true);
-    document.getElementById('result-saviour').innerHTML = `<span style="color:#2e7d32;font-weight:bold;">🎉 Congratulations! You saved ${saviourGrid[saviourHighlightIndex].country} (${saviourGrid[saviourHighlightIndex].code}) and won Saviour Mode!</span>`;
+    document.getElementById('result-saviour').innerHTML = `<span style="color:#2e7d32;font-weight:bold;">🎉 Congratulations! You saved ${saviourGrid[saviourHighlightIndex].country} (${saviourGrid[saviourHighlightIndex].code}) and won Saviour Mode${saviourModeType === 'daily' ? ' (Daily)' : ''}!</span>`;
     return;
   }
   for (let i = 0; i < saviourGrid.length; i++) {
