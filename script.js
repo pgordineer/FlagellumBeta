@@ -68,14 +68,14 @@ let saviourModeType = 'normal';
 
 // Utility: Seeded random generator (Mulberry32)
 function mulberry32(seed) {
+  let _seed = seed >>> 0;
   return function() {
-    let t = seed;
+    let t = _seed;
     t += 0x6D2B79F5;
     t = Math.imul(t ^ t >>> 15, t | 1);
     t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    let result = ((t ^ t >>> 14) >>> 0) / 4294967296;
-    seed = t; // update seed for next call
-    return result;
+    _seed = t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
   };
 }
 
@@ -1188,6 +1188,7 @@ function setupSaviourGrid(mode = saviourModeType) {
   saviourGameOver = false;
   saviourActionHistory = [];
   saviourActionPointer = -1;
+  saviourTotal = 25;
   saveSaviourActionState('Start');
   renderSaviourGrid();
 }
@@ -1210,27 +1211,27 @@ function renderSaviourGrid(gameOver = false) {
     if (saviourModeType === 'daily') {
       if (
         (saviourScore > 0 && (saviourDailyHighScore === 0 || saviourScore < saviourDailyHighScore)) ||
-        (saviourScore === saviourDailyHighScore && saviourGrid.length < saviourDailyHighTotal && saviourDailyHighScore > 0)
+        (saviourScore === saviourDailyHighScore && saviourTotal < saviourDailyHighTotal && saviourScore > 0)
       ) {
         saviourDailyHighScore = saviourScore;
-        saviourDailyHighTotal = saviourGrid.length;
+        saviourDailyHighTotal = saviourTotal;
         localStorage.setItem('flagellum_saviour_daily_highscore', saviourDailyHighScore);
         localStorage.setItem('flagellum_saviour_daily_hightotal', saviourDailyHighTotal);
       }
     } else {
       if (
         (saviourScore > 0 && (saviourHighScore === 0 || saviourScore < saviourHighScore)) ||
-        (saviourScore === saviourHighScore && saviourGrid.length < saviourHighTotal && saviourHighScore > 0)
+        (saviourScore === saviourHighScore && saviourTotal < saviourHighTotal && saviourScore > 0)
       ) {
         saviourHighScore = saviourScore;
-        saviourHighTotal = saviourGrid.length;
+        saviourHighTotal = saviourTotal;
         localStorage.setItem('flagellum_saviour_highscore', saviourHighScore);
         localStorage.setItem('flagellum_saviour_hightotal', saviourHighTotal);
       }
     }
     updateSaviourScoreDisplays();
     renderSaviourGrid(true);
-    document.getElementById('result-saviour').innerHTML = `<span style="color:#2e7d32;font-weight:bold;">🎉 Congratulations! You saved ${saviourGrid[saviourHighlightIndex].country} (${saviourGrid[saviourHighlightIndex].code}) and won Saviour Mode${saviourModeType === 'daily' ? ' (Daily)' : ''}!</span>`;
+    document.getElementById('result-saviour').innerHTML = `<span style="color:#2e7d32;font-weight:bold;">🎉 Congratulations! You saved ${saviourGrid[saviourHighlightIndex].country} (${saviourGrid[saviourHighlightIndex].code}) and won Saviour Mode${saviourModeType === 'daily' ? ' (Daily)' : ''}!`;
     return;
   }
   for (let i = 0; i < saviourGrid.length; i++) {
@@ -1455,6 +1456,7 @@ function handleSaviourFlagEntrySubmit(idx) {
 }
 
 // Saviour action descriptions for info popout
+
 const SAVIOUR_ACTION_DESCRIPTIONS = [
   { name: 'Freeze Ray', icon: '❄️', desc: 'Eliminate all countries with territory in the polar circles.' },
   { name: 'Heat Ray', icon: '🔥', desc: 'Eliminate all countries with territory in the tropics.' },
