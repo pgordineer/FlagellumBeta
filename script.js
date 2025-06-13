@@ -34,7 +34,7 @@ let rcCorrectIndex = 0;
 let rcOptions = [];
 let rcCurrentFlag = {};
 
-// --- Saviour Mode ---
+// --- Saviour Mode State ---
 const SAVIOUR_MODES = {
   normal: {
     score: 0,
@@ -73,30 +73,28 @@ const SAVIOUR_ACTIONS = [
   { name: 'Gamma Burst', icon: '☢️' }
 ];
 
-// --- Deterministic Seeded Shuffle for Daily Mode ---
-function seededShuffle(array, seed) {
+// --- Deterministic Shuffle for Daily Mode ---
+function deterministicDateShuffle(array, dateSeed) {
+  // Use a simple deterministic shuffle: e.g. Fisher-Yates with a date-based seed
   let arr = array.slice();
-  let rng = mulberry32(seed);
+  let seed = dateSeed;
+  function seededRand() {
+    // xorshift32
+    seed ^= seed << 13;
+    seed ^= seed >> 17;
+    seed ^= seed << 5;
+    return (seed < 0 ? ~seed + 1 : seed) % 4294967296 / 4294967296;
+  }
   for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
+    const j = Math.floor(seededRand() * (i + 1));
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
-}
-function mulberry32(seed) {
-  let t = seed >>> 0;
-  return function() {
-    t += 0x6D2B79F5;
-    t = Math.imul(t ^ t >>> 15, t | 1);
-    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
 }
 function getTodaySeed() {
   const d = new Date();
   return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 }
-
 function getSaviourState() {
   return SAVIOUR_MODES[saviourModeType];
 }
@@ -130,7 +128,7 @@ function setupSaviourGrid(mode = saviourModeType) {
   saviourModeType = mode;
   let shuffled;
   if (mode === 'daily') {
-    shuffled = seededShuffle(flags, getTodaySeed());
+    shuffled = deterministicDateShuffle(flags, getTodaySeed());
   } else {
     shuffled = [...flags].sort(() => Math.random() - 0.5);
   }
@@ -1265,7 +1263,7 @@ function setupSaviourGrid(mode = saviourModeType) {
   saviourModeType = mode;
   let shuffled;
   if (mode === 'daily') {
-    shuffled = seededShuffle(flags, getTodaySeed());
+    shuffled = deterministicDateShuffle(flags, getTodaySeed());
   } else {
     shuffled = [...flags].sort(() => Math.random() - 0.5);
   }
@@ -1554,7 +1552,7 @@ const SAVIOUR_ACTION_DESCRIPTIONS = [
   { name: 'Shrink Ray', icon: '🔬', desc: 'Eliminate all countries with area under 83,879 km².' },
   { name: 'Money Bags', icon: '💰', desc: 'Eliminate all countries with GDP of 25,000,000,000 or over.' },
   { name: 'Penny Pincher', icon: '🪙', desc: 'Eliminate all countries with GDP under 25,000,000,000.' },
-  { name: 'Tidal Force', icon: '🌊', desc: 'Eliminate all countries with a coastline.' },
+  { name: 'Tidal Force', icon: '🌊' , desc: 'Eliminate all countries with a coastline.' },
   { name: 'Landlocked', icon: '🏜️', desc: 'Eliminate all countries with no coastline.' },
   { name: 'Baby Boomer', icon: '👶', desc: 'Special action (not yet implemented).' },
   { name: 'Gamma Burst', icon: '☢️', desc: 'Eliminate all countries with nuclear arms.' },
