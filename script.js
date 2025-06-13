@@ -129,6 +129,8 @@ function setupSaviourGrid(mode = saviourModeType) {
   let shuffled;
   if (mode === 'daily') {
     shuffled = deterministicDateShuffle(flags, getTodaySeed());
+    // Debug: log first 3 countries for verification
+    console.log('DAILY GRID:', shuffled.slice(0, 3).map(f => f.country));
   } else {
     shuffled = [...flags].sort(() => Math.random() - 0.5);
   }
@@ -1264,6 +1266,8 @@ function setupSaviourGrid(mode = saviourModeType) {
   let shuffled;
   if (mode === 'daily') {
     shuffled = deterministicDateShuffle(flags, getTodaySeed());
+    // Debug: log first 3 countries for verification
+    console.log('DAILY GRID:', shuffled.slice(0, 3).map(f => f.country));
   } else {
     shuffled = [...flags].sort(() => Math.random() - 0.5);
   }
@@ -1428,7 +1432,7 @@ function setupSaviourFlagEntryAutocomplete(idx) {
       return;
     }
     listDiv.innerHTML = '';
-    filtered.forEach((flag, idx2) => {
+    filtered.foreach((flag, idx2) => {
       const item = document.createElement('div');
       item.className = 'autocomplete-item';
       item.innerHTML = `${flag.country} <span style='color:#888;'>(${flag.code})</span>`;
