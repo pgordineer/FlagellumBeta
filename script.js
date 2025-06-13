@@ -69,10 +69,13 @@ let saviourModeType = 'normal';
 // Utility: Seeded random generator (Mulberry32)
 function mulberry32(seed) {
   return function() {
-    let t = seed += 0x6D2B79F5;
+    let t = seed;
+    t += 0x6D2B79F5;
     t = Math.imul(t ^ t >>> 15, t | 1);
     t ^= t + Math.imul(t ^ t >>> 7, t | 61);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    let result = ((t ^ t >>> 14) >>> 0) / 4294967296;
+    seed = t; // update seed for next call
+    return result;
   };
 }
 
@@ -191,6 +194,9 @@ function loadHighScores() {
   saviourHighScore = parseInt(localStorage.getItem('flagellum_saviour_highscore')) || 0;
   saviourHighTotal = parseInt(localStorage.getItem('flagellum_saviour_hightotal')) || 0;
   saviourLongestStreak = parseInt(localStorage.getItem('flagellum_saviour_longeststreak')) || 0;
+  saviourDailyHighScore = parseInt(localStorage.getItem('flagellum_saviour_daily_highscore')) || 0;
+  saviourDailyHighTotal = parseInt(localStorage.getItem('flagellum_saviour_daily_hightotal')) || 0;
+  saviourDailyLongestStreak = parseInt(localStorage.getItem('flagellum_saviour_daily_longeststreak')) || 0;
 }
 
 // Update: Saviour mode high score is lowest number of actions (minimum, not maximum)
@@ -239,18 +245,34 @@ function saveHighScores() {
     localStorage.setItem('flagellum_rc_longeststreak', rcLongestStreak);
   }
   // Saviour mode (lower is better, but must be >0)
-  if (
-    (saviourScore > 0 && (saviourHighScore === 0 || saviourScore < saviourHighScore)) ||
-    (saviourScore === saviourHighScore && saviourTotal < saviourHighTotal && saviourScore > 0)
-  ) {
-    localStorage.setItem('flagellum_saviour_highscore', saviourScore);
-    localStorage.setItem('flagellum_saviour_hightotal', saviourTotal);
-    saviourHighScore = saviourScore;
-    saviourHighTotal = saviourTotal;
-  }
-  if (saviourStreak > saviourLongestStreak) {
-    saviourLongestStreak = saviourStreak;
-    localStorage.setItem('flagellum_saviour_longeststreak', saviourLongestStreak);
+  if (saviourModeType === 'daily') {
+    if (
+      (saviourScore > 0 && (saviourDailyHighScore === 0 || saviourScore < saviourDailyHighScore)) ||
+      (saviourScore === saviourDailyHighScore && saviourTotal < saviourDailyHighTotal && saviourScore > 0)
+    ) {
+      localStorage.setItem('flagellum_saviour_daily_highscore', saviourScore);
+      localStorage.setItem('flagellum_saviour_daily_hightotal', saviourTotal);
+      saviourDailyHighScore = saviourScore;
+      saviourDailyHighTotal = saviourTotal;
+    }
+    if (saviourStreak > saviourDailyLongestStreak) {
+      saviourDailyLongestStreak = saviourStreak;
+      localStorage.setItem('flagellum_saviour_daily_longeststreak', saviourDailyLongestStreak);
+    }
+  } else {
+    if (
+      (saviourScore > 0 && (saviourHighScore === 0 || saviourScore < saviourHighScore)) ||
+      (saviourScore === saviourHighScore && saviourTotal < saviourHighTotal && saviourScore > 0)
+    ) {
+      localStorage.setItem('flagellum_saviour_highscore', saviourScore);
+      localStorage.setItem('flagellum_saviour_hightotal', saviourTotal);
+      saviourHighScore = saviourScore;
+      saviourHighTotal = saviourTotal;
+    }
+    if (saviourStreak > saviourLongestStreak) {
+      saviourLongestStreak = saviourStreak;
+      localStorage.setItem('flagellum_saviour_longeststreak', saviourLongestStreak);
+    }
   }
 }
 
@@ -293,15 +315,26 @@ function updateScoreDisplays() {
 
   // Saviour mode
   document.getElementById('score-saviour').innerHTML = `Actions: ${saviourScore > 0 ? saviourScore : '-'} of ${saviourTotal > 0 ? saviourTotal : '-'}`;
-  let savHS = `High Score: ${saviourHighScore > 0 ? saviourHighScore : '-'} of ${saviourHighTotal > 0 ? saviourHighTotal : '-'}`;
+  let hs, ht, longest;
+  if (saviourModeType === 'daily') {
+    hs = saviourDailyHighScore;
+    ht = saviourDailyHighTotal;
+    longest = saviourDailyLongestStreak;
+  } else {
+    hs = saviourHighScore;
+    ht = saviourHighTotal;
+    longest = saviourLongestStreak;
+  }
+  let savHS = `High Score: ${hs > 0 ? hs : '-'} of ${ht > 0 ? ht : '-'}`;
   let nhsSaviour = '';
   if (
-    (saviourScore > 0 && (saviourHighScore === 0 || saviourScore < saviourHighScore)) ||
-    (saviourScore === saviourHighScore && saviourTotal < saviourHighTotal && saviourHighScore > 0)
+    (saviourScore > 0 && (hs === 0 || saviourScore < hs)) ||
+    (saviourScore === hs && saviourTotal < ht && hs > 0)
   ) {
     nhsSaviour = '<div class="new-highscore">New High Score!</div>';
   }
   document.getElementById('highscore-saviour').innerHTML = savHS + nhsSaviour;
+  document.getElementById('streak-saviour').innerHTML = `<span style="color:#0078d7;font-weight:500;">Streak:</span> ${saviourStreak} <span class="score-streak">(Longest: ${longest})</span>`;
 }
 
 function formatScore(score) {
